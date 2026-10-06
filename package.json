@@ -1,13 +1,13 @@
 {
-  "name": "@_linked/messaging",
+  "name": "@linked.cm/messaging",
   "version": "0.1.0",
-  "description": "A shape-agnostic, transport-agnostic LINKED messaging engine \u2014 the Messaging seam, an in-memory store, and a themeable chat client. Transports (e.g. @_linked/matrix) implement the same interface.",
+  "description": "A shape-agnostic, transport-agnostic LINKED messaging engine — the Messaging seam, an in-memory store, and a themeable chat client. Transports (e.g. @linked.cm/matrix) implement the same interface.",
   "linkedPackage": true,
   "type": "module",
   "main": "lib/cjs/index.js",
   "module": "lib/esm/index.js",
   "types": "lib/esm/index.d.ts",
-  "license": "ISC",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/linked-cm/messaging.git"
@@ -32,9 +32,7 @@
     "start": "npm exec linked dev",
     "build": "npm exec linked build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --config vitest.config.ts",
-    "prepublishOnly": "npm exec linked build production",
-    "postpublish": "npm exec linked register"
+    "test": "vitest run --config vitest.config.ts"
   },
   "exports": {
     ".": {
@@ -90,7 +88,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.9.2",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "@changesets/changelog-github": "^1.0.0",
+    "@changesets/cli": "^3.0.0"
   },
   "keywords": [
     "linked",

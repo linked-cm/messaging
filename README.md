@@ -1,4 +1,4 @@
-# `@_linked/messaging`
+# `@linked.cm/messaging`
 
 A shape-agnostic, transport-agnostic messaging engine for LINKED applications.
 
@@ -16,7 +16,7 @@ It provides three things and deliberately nothing else:
 ## Install
 
 ```sh
-npm install @_linked/messaging
+npm install @linked.cm/messaging
 ```
 
 ## What it does not know
@@ -40,8 +40,8 @@ That is what lets the same UI run against the in-memory store and against a
 live transport with no component changes:
 
 ```ts
-import { createMessagingStore } from '@_linked/messaging';
-import { createMatrixMessaging } from '@_linked/matrix/client';
+import { createMessagingStore } from '@linked.cm/messaging';
+import { createMatrixMessaging } from '@linked.cm/matrix/client';
 
 const store = demo ? createMessagingStore(seed) : await createMatrixMessaging(session, config);
 ```
@@ -55,7 +55,7 @@ so it inherits the host's theme in both light and dark.
 Import the stylesheet once:
 
 ```ts
-import '@_linked/messaging/styles.css';
+import '@linked.cm/messaging/styles.css';
 ```
 
 ## Transports
@@ -63,7 +63,7 @@ import '@_linked/messaging/styles.css';
 | Package | Transport |
 |---|---|
 | built in | `createMessagingStore` — in-memory |
-| `@_linked/matrix` | Matrix homeserver + appservice |
+| `@linked.cm/matrix` | Matrix homeserver + appservice |
 
 The package targets `@_linked/core` 2.14.4 and registers under the LINKED
 package identity `@_linked/messaging`.

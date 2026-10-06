@@ -6,3 +6,7 @@ src/**/*.d.ts
 # Package build output and local dependencies.
 lib/
 node_modules/
+
+# Ambient module declarations are source, not compiler output.
+!src/styles.d.ts
+.DS_Store
