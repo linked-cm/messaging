@@ -37,30 +37,25 @@
   "exports": {
     ".": {
       "types": "./lib/esm/index.d.ts",
-      "development": "./src/index.ts",
       "import": "./lib/esm/index.js",
       "require": "./lib/cjs/index.js"
     },
     "./package": {
       "types": "./lib/esm/package.d.ts",
-      "development": "./src/package.ts",
       "import": "./lib/esm/package.js",
       "require": "./lib/cjs/package.js"
     },
     "./styles.css": {
-      "development": "./src/MessageClient.module.css",
       "import": "./lib/esm/MessageClient.module.css",
       "require": "./lib/cjs/MessageClient.module.css"
     },
     "./*.js": {
       "types": "./lib/esm/*.d.ts",
-      "development": "./src/*.ts",
       "import": "./lib/esm/*.js",
       "require": "./lib/cjs/*.js"
     },
     "./*": {
       "types": "./lib/esm/*.d.ts",
-      "development": "./src/*.ts",
       "import": "./lib/esm/*.js",
       "require": "./lib/cjs/*.js"
     }
