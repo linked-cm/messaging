@@ -6,7 +6,8 @@ It provides three things and deliberately nothing else:
 
 - **`Messaging`** — the transport seam. `spaces()`, `threads()`, `messages()`,
   `send()`, plus optional additive verbs (`react`, `sendReply`, `edit`,
-  `remove`, `sendMedia`, `sendData`, `sendSignal`, `setTyping`, `markRead`).
+  `remove`, `report`, `ignoreAuthor`, `sendMedia`, `sendData`, `sendSignal`,
+  `setTyping`, `markRead`).
   A transport implements only what it supports; the UI never shows a dead
   control.
 - **`createMessagingStore`** — an in-memory reference implementation of that
@@ -61,6 +62,19 @@ its session from the host.
 
 `MsgThread.audience` is a host-defined string. The engine carries it and does
 not render or interpret it. Age bands and who may read a thread stay in the host.
+
+## Safety
+
+The default client has accessible report, mute, block, own-delete, and authorized
+moderator-remove controls. Pass a `MessageSafetyController` to persist product-level
+actions. A transport-native report/ignore is also used when available, but the API keeps
+the semantics honest: a Matrix ignore is a one-way mute, never a bilateral block.
+
+`filterUnsafeMessages`, `createSlidingWindowRateLimiter`, and
+`runMessageTextSafetyCheck` are reusable without the UI. The scan helper requires an
+injected scanner and records when none is available; this package does not claim that a
+keyword list or empty seam is content moderation. Durable RDF records and moderation
+lifecycle operations live in `@linked.cm/safety`.
 
 ## Styling
 

@@ -134,6 +134,19 @@ export interface Messaging {
   edit?(threadId: string, eventId: string, newText: string): void;
   /** delete a message (Matrix: redaction). Optional/additive. */
   remove?(threadId: string, eventId: string): void;
+  /** Report an event to the transport operator. This is transport abuse reporting only;
+   *  a host that promises a moderation queue or account action must also persist its own
+   *  report through `MessageSafetyController.reportMessage`. Optional/additive. */
+  report?(
+    threadId: string,
+    eventId: string,
+    report: { reason: string; score?: number },
+  ): void | Promise<void>;
+  /** Hide events from an author through the transport's native one-way ignore facility.
+   *  This is deliberately NOT called block: bilateral product blocking is host policy. */
+  ignoreAuthor?(authorId: string): void | Promise<void>;
+  /** Reverse a transport-native one-way ignore. */
+  unignoreAuthor?(authorId: string): void | Promise<void>;
   /** the VIEWER started (true) / stopped (false) composing in a thread (Matrix: m.typing,
    *  plan 036 P4). Callers may fire on every keystroke — the transport throttles. The
    *  viewer's own typing never projects back onto `MsgThread.typing`. Optional/additive. */

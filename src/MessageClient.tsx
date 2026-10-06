@@ -1,5 +1,12 @@
 import React from 'react';
 import type { Messaging, MsgThread, MsgSpace, MsgAuthor, MsgMessage, PrivacyTier } from './types.js';
+import {
+  MESSAGE_REPORT_REASONS,
+  filterUnsafeMessages,
+  messageSafetyKey,
+  type MessageReportReason,
+  type MessageSafetyController,
+} from './safety.js';
 import { useMessagingStore } from './store.js';
 import style from './MessageClient.module.css';
 
@@ -29,6 +36,51 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const defaultExternalNote = (provider: string) =>
   `This space runs its chat on ${provider}. Scan the code with your phone, or tap below.`;
 
+const DEFAULT_REASON_LABELS: Record<MessageReportReason, string> = {
+  spam: 'Spam or scam',
+  harassment: 'Harassment or bullying',
+  hateSpeech: 'Hate speech',
+  violence: 'Violence or threats',
+  sexualContent: 'Nudity or sexual content',
+  childSafety: 'Child safety',
+  misinformation: 'False information',
+  impersonation: 'Impersonation',
+  personalInformation: 'Private personal information',
+  other: 'Something else',
+};
+
+export interface MessageSafetyLabels {
+  actions: string;
+  report: string;
+  mute: string;
+  block: string;
+  remove: string;
+  reportTitle: string;
+  reportReason: string;
+  reportDetail: string;
+  inPersonIncident: string;
+  submitReport: string;
+  cancel: string;
+  safetyError: string;
+  reasonLabels: Partial<Record<MessageReportReason, string>>;
+}
+
+const DEFAULT_SAFETY_LABELS: MessageSafetyLabels = {
+  actions: 'Message safety actions',
+  report: 'Report',
+  mute: 'Mute sender',
+  block: 'Block sender',
+  remove: 'Remove message',
+  reportTitle: 'Report message',
+  reportReason: 'Why are you reporting this?',
+  reportDetail: 'Anything you want the safety team to know (optional)',
+  inPersonIncident: 'This also happened in person',
+  submitReport: 'Submit report',
+  cancel: 'Cancel',
+  safetyError: 'That safety action could not be completed. Please try again.',
+  reasonLabels: DEFAULT_REASON_LABELS,
+};
+
 export interface MessageClientProps {
   store: Messaging;
   activeThreadId: string;
@@ -49,6 +101,13 @@ export interface MessageClientProps {
   renderMessage?: (msg: MsgMessage, thread: MsgThread) => React.ReactNode;
   renderComposer?: (thread: MsgThread, send: (text: string) => void) => React.ReactNode;
   renderTierBadge?: (t: MsgThread) => React.ReactNode;
+  /** Durable host safety policy and actions. Transport-native report/ignore are used as
+   *  additional fallbacks; a Matrix ignore is never presented as a bilateral block. */
+  safety?: MessageSafetyController;
+  /** Translated host copy for the built-in safety UI. */
+  safetyLabels?: Partial<Omit<MessageSafetyLabels, 'reasonLabels'>> & {
+    reasonLabels?: Partial<Record<MessageReportReason, string>>;
+  };
   directLabel?: string;
   providerLabel?: (provider: string) => string;
   onAddTeam?: () => void;
@@ -62,7 +121,7 @@ export interface MessageClientProps {
   onConversationChange?: (open: boolean) => void;
 }
 
-export const MessageClient: React.FC<MessageClientProps> = ({ store, activeThreadId, onActiveThread, threadIcon, familyOrder, familyLabel, tierIcon, tierNote, renderCard, renderAvatar, botAvatar, readOnlyNote = 'Read only', directLabel = 'Direct', providerLabel = cap, renderQR, externalNote = defaultExternalNote, onAddTeam, onPaneScroll, onConversationChange, renderRailItem, renderThreadRow, renderMessage, renderComposer, renderTierBadge }) => {
+export const MessageClient: React.FC<MessageClientProps> = ({ store, activeThreadId, onActiveThread, threadIcon, familyOrder, familyLabel, tierIcon, tierNote, renderCard, renderAvatar, botAvatar, readOnlyNote = 'Read only', directLabel = 'Direct', providerLabel = cap, renderQR, externalNote = defaultExternalNote, onAddTeam, onPaneScroll, onConversationChange, renderRailItem, renderThreadRow, renderMessage, renderComposer, renderTierBadge, safety, safetyLabels }) => {
   const m = useMessagingStore(store);
   const spaces = m.spaces();
   const teams = spaces.filter((s) => s.tier !== 'personal');
@@ -194,6 +253,9 @@ export const MessageClient: React.FC<MessageClientProps> = ({ store, activeThrea
               renderMessage={renderMessage}
               renderComposer={renderComposer}
               renderTierBadge={renderTierBadge}
+              store={m}
+              safety={safety}
+              safetyLabels={safetyLabels}
             />
           ) : null}
         </main>
@@ -329,6 +391,7 @@ const ExternalView: React.FC<{
 
 // ── conversation (channel / dm) message view ──
 const ConversationView: React.FC<{
+  store: Messaging;
   thread: MsgThread;
   messages: MsgMessage[];
   onSend: (text: string) => void;
@@ -345,8 +408,34 @@ const ConversationView: React.FC<{
   renderMessage?: (msg: MsgMessage, thread: MsgThread) => React.ReactNode;
   renderComposer?: (thread: MsgThread, send: (text: string) => void) => React.ReactNode;
   renderTierBadge?: (t: MsgThread) => React.ReactNode;
-}> = ({ thread, messages, onSend, onBack, onCycle, threadIcon, tierIcon, tierNote, renderCard, renderAvatar, botAvatar, readOnlyNote, onPaneScroll, renderMessage, renderComposer, renderTierBadge }) => {
+  safety?: MessageSafetyController;
+  safetyLabels?: MessageClientProps['safetyLabels'];
+}> = ({ store, thread, messages, onSend, onBack, onCycle, threadIcon, tierIcon, tierNote, renderCard, renderAvatar, botAvatar, readOnlyNote, onPaneScroll, renderMessage, renderComposer, renderTierBadge, safety, safetyLabels }) => {
   const [draft, setDraft] = React.useState('');
+  const [reporting, setReporting] = React.useState<MsgMessage | null>(null);
+  const [reportReason, setReportReason] = React.useState<MessageReportReason | ''>('');
+  const [reportDetail, setReportDetail] = React.useState('');
+  const [inPersonIncident, setInPersonIncident] = React.useState(false);
+  const [safetyBusy, setSafetyBusy] = React.useState(false);
+  const [safetyError, setSafetyError] = React.useState('');
+  const [hiddenMessages, setHiddenMessages] = React.useState<Set<string>>(() => new Set());
+  const [mutedAuthors, setMutedAuthors] = React.useState<Set<string>>(() => new Set());
+  const [blockedAuthors, setBlockedAuthors] = React.useState<Set<string>>(() => new Set());
+  const labels: MessageSafetyLabels = {
+    ...DEFAULT_SAFETY_LABELS,
+    ...safetyLabels,
+    reasonLabels: {
+      ...DEFAULT_SAFETY_LABELS.reasonLabels,
+      ...safetyLabels?.reasonLabels,
+    },
+  };
+  const mergedSet = (persisted?: ReadonlySet<string>, local?: ReadonlySet<string>) =>
+    new Set([...(persisted ?? []), ...(local ?? [])]);
+  const visibleMessages = filterUnsafeMessages(messages, {
+    blockedAuthorIds: mergedSet(safety?.blockedAuthorIds, blockedAuthors),
+    mutedAuthorIds: mergedSet(safety?.mutedAuthorIds, mutedAuthors),
+    hiddenMessageKeys: mergedSet(safety?.hiddenMessageKeys, hiddenMessages),
+  });
   const send = () => {
     const v = draft.trim();
     if (!v) return;
@@ -354,6 +443,82 @@ const ConversationView: React.FC<{
     setDraft('');
   };
   const avatarFor = (a: MsgAuthor) => (a.bot && botAvatar ? botAvatar : renderAvatar ? renderAvatar(a) : <span className={style.avatar}>{a.initials}</span>);
+
+  const completeAction = async (
+    action: () => void | Promise<void>,
+    after: () => void,
+  ) => {
+    setSafetyBusy(true);
+    setSafetyError('');
+    try {
+      await action();
+      after();
+    } catch {
+      setSafetyError(labels.safetyError);
+    } finally {
+      setSafetyBusy(false);
+    }
+  };
+
+  const report = async () => {
+    if (!reporting || !reportReason) return;
+    const subject = { thread, message: reporting, author: reporting.author };
+    const actions: Array<Promise<void>> = [];
+    if (safety?.reportMessage) {
+      actions.push(Promise.resolve(safety.reportMessage({
+        ...subject,
+        reason: reportReason,
+        detail: reportDetail.trim() || undefined,
+        inPersonIncident: inPersonIncident || undefined,
+      })));
+    }
+    if (store.report) {
+      const detail = reportDetail.trim();
+      actions.push(Promise.resolve(store.report(
+        thread.id,
+        reporting.id,
+        { reason: detail ? `${reportReason}: ${detail}` : reportReason, score: -100 },
+      )));
+    }
+    if (!actions.length) return;
+    await completeAction(
+      async () => {
+        const outcomes = await Promise.allSettled(actions);
+        if (!outcomes.some((outcome) => outcome.status === 'fulfilled')) {
+          throw (outcomes[0] as PromiseRejectedResult | undefined)?.reason;
+        }
+      },
+      () => {
+        setHiddenMessages((current) => new Set(current).add(messageSafetyKey(thread.id, reporting.id)));
+        setReporting(null);
+        setReportReason('');
+        setReportDetail('');
+        setInPersonIncident(false);
+      },
+    );
+  };
+
+  const mute = (message: MsgMessage) => completeAction(
+    async () => {
+      if (safety?.muteAuthor) {
+        await safety.muteAuthor({ thread, author: message.author, sourceMessage: message });
+      } else if (store.ignoreAuthor) {
+        await store.ignoreAuthor(message.author.id);
+      }
+    },
+    () => setMutedAuthors((current) => new Set(current).add(message.author.id)),
+  );
+
+  const block = (message: MsgMessage) => completeAction(
+    async () => {
+      if (!safety?.blockAuthor) return;
+      await safety.blockAuthor({ thread, author: message.author, sourceMessage: message });
+      // Defense in depth. Failure to mirror the durable host block into Matrix ignore
+      // does not undo the host decision.
+      await Promise.resolve(store.ignoreAuthor?.(message.author.id)).catch(() => undefined);
+    },
+    () => setBlockedAuthors((current) => new Set(current).add(message.author.id)),
+  );
 
   return (
     <>
@@ -380,8 +545,8 @@ const ConversationView: React.FC<{
 
       <div className={style.messages} onScroll={(e) => onPaneScroll?.((e.target as HTMLElement).scrollTop)}>
         {renderMessage
-          ? messages.map((msg) => <React.Fragment key={msg.id}>{renderMessage(msg, thread)}</React.Fragment>)
-          : messages.map((msg) => (
+          ? visibleMessages.map((msg) => <React.Fragment key={msg.id}>{renderMessage(msg, thread)}</React.Fragment>)
+          : visibleMessages.map((msg) => (
           <div key={msg.id} className={msg.pin ? `${style.msg} ${style.pinned}` : msg.mine ? `${style.msg} ${style.mine}` : style.msg}>
             <span className={style.msgAvatar}>{avatarFor(msg.author)}</span>
             <div className={style.msgBody}>
@@ -403,10 +568,103 @@ const ConversationView: React.FC<{
                   ))}
                 </div>
               )}
+              {(msg.mine ? !!store.remove : !!(safety?.reportMessage || store.report || safety?.muteAuthor || store.ignoreAuthor || safety?.blockAuthor || (safety?.moderateRemove && safety.canModerate?.({ thread, message: msg, author: msg.author })))) && (
+                <div className={style.safetyActions} role="toolbar" aria-label={labels.actions}>
+                  {msg.mine && store.remove && (
+                    <button type="button" onClick={() => store.remove?.(thread.id, msg.id)}>
+                      {labels.remove}
+                    </button>
+                  )}
+                  {!msg.mine && (safety?.reportMessage || store.report) && (
+                    <button type="button" onClick={() => { setSafetyError(''); setReporting(msg); }}>
+                      {labels.report}
+                    </button>
+                  )}
+                  {!msg.mine && (safety?.muteAuthor || store.ignoreAuthor) && (
+                    <button type="button" disabled={safetyBusy} onClick={() => void mute(msg)}>
+                      {labels.mute}
+                    </button>
+                  )}
+                  {!msg.mine && safety?.blockAuthor && (
+                    <button type="button" disabled={safetyBusy} onClick={() => void block(msg)}>
+                      {labels.block}
+                    </button>
+                  )}
+                  {!msg.mine && safety?.moderateRemove && safety.canModerate?.({ thread, message: msg, author: msg.author }) && (
+                    <button
+                      type="button"
+                      disabled={safetyBusy}
+                      onClick={() => void completeAction(
+                        () => safety.moderateRemove!({ thread, message: msg, author: msg.author }),
+                        () => setHiddenMessages((current) => new Set(current).add(messageSafetyKey(thread.id, msg.id))),
+                      )}
+                    >
+                      {labels.remove}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
+
+      {reporting && (
+        <div className={style.safetyBackdrop} role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !safetyBusy) setReporting(null);
+        }}>
+          <section className={style.safetyDialog} role="dialog" aria-modal="true" aria-labelledby="message-report-title">
+            <h2 id="message-report-title">{labels.reportTitle}</h2>
+            <fieldset disabled={safetyBusy}>
+              <legend>{labels.reportReason}</legend>
+              <div className={style.reportReasons}>
+                {MESSAGE_REPORT_REASONS.map((reason) => (
+                  <label key={reason}>
+                    <input
+                      type="radio"
+                      name="message-report-reason"
+                      value={reason}
+                      checked={reportReason === reason}
+                      onChange={() => setReportReason(reason)}
+                    />
+                    <span>{labels.reasonLabels[reason]}</span>
+                  </label>
+                ))}
+              </div>
+              {safety?.allowInPersonIncident && (
+                <label className={style.reportCheck}>
+                  <input type="checkbox" checked={inPersonIncident} onChange={(event) => setInPersonIncident(event.target.checked)} />
+                  <span>{labels.inPersonIncident}</span>
+                </label>
+              )}
+              {(inPersonIncident || reportReason === 'violence' || reportReason === 'childSafety') && safety?.emergencyGuidance && (
+                <p className={style.emergency} role="note">
+                  {safety.emergencyGuidance.href ? (
+                    <a href={safety.emergencyGuidance.href}>{safety.emergencyGuidance.text}</a>
+                  ) : safety.emergencyGuidance.text}
+                </p>
+              )}
+              <textarea
+                value={reportDetail}
+                onChange={(event) => setReportDetail(event.target.value)}
+                placeholder={labels.reportDetail}
+                rows={3}
+              />
+            </fieldset>
+            {safetyError && <p className={style.safetyError} role="alert">{safetyError}</p>}
+            <div className={style.dialogActions}>
+              <button type="button" disabled={safetyBusy || !reportReason} onClick={() => void report()}>
+                {labels.submitReport}
+              </button>
+              <button type="button" disabled={safetyBusy} onClick={() => setReporting(null)}>
+                {labels.cancel}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {safetyError && !reporting && <p className={style.safetyToast} role="alert">{safetyError}</p>}
 
       <div className={style.composer}>
         {renderComposer ? (

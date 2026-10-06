@@ -524,6 +524,151 @@
   color: var(--text-secondary);
 }
 
+/* Safety actions are intentionally explicit and keyboard-visible. Hosts that replace
+   renderMessage own their corresponding action surface and can reuse the exported contracts. */
+.safetyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xs);
+}
+.safetyActions button {
+  border: 0;
+  background: transparent;
+  color: var(--text-auxiliary);
+  font-family: var(--label-font-family);
+  font-size: var(--text-2xs);
+  cursor: pointer;
+  padding: var(--space-2xs);
+}
+.safetyActions button:hover,
+.safetyActions button:focus-visible {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+.safetyActions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.safetyBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: var(--space-md);
+  background: color-mix(in srgb, var(--bg-page) 76%, transparent);
+}
+.safetyDialog {
+  box-sizing: border-box;
+  width: min(100%, 520px);
+  max-height: min(90vh, 720px);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  border: 1px solid var(--box-border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+.safetyDialog h2 {
+  margin: 0 0 var(--space-md);
+  font-family: var(--heading-font-family);
+  font-size: var(--text-lg);
+}
+.safetyDialog fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.safetyDialog legend {
+  margin-bottom: var(--space-sm);
+  font-family: var(--label-font-family);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.reportReasons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+.reportReasons label,
+.reportCheck {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  font-family: var(--typography-font-family);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.reportCheck {
+  margin-top: var(--space-md);
+}
+.safetyDialog textarea {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: var(--space-md);
+  padding: var(--space-sm);
+  resize: vertical;
+  border: 1px solid var(--box-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--typography-font-family);
+  font-size: var(--text-sm);
+}
+.emergency,
+.safetyError,
+.safetyToast {
+  font-family: var(--typography-font-family);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+.emergency {
+  padding: var(--space-sm);
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--box-border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--text-primary);
+}
+.emergency a {
+  color: inherit;
+}
+.safetyError,
+.safetyToast {
+  color: var(--danger);
+}
+.safetyToast {
+  margin: 0;
+  padding: var(--space-xs) var(--space-lg);
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+.dialogActions button {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--box-border);
+  border-radius: var(--radius-full);
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--label-font-family);
+  cursor: pointer;
+}
+.dialogActions button:first-child {
+  border-color: var(--control-accent);
+  background: var(--control-accent);
+  color: var(--control-text-contrast);
+}
+.dialogActions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ── composer ── */
 .composer {
   flex-shrink: 0;
@@ -616,5 +761,8 @@
   .convo {
     min-height: 44px;
     gap: var(--space-sm-plus);
+  }
+  .reportReasons {
+    grid-template-columns: 1fr;
   }
 }
