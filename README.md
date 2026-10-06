@@ -46,6 +46,22 @@ import { createMatrixMessaging } from '@linked.cm/matrix/client';
 const store = demo ? createMessagingStore(seed) : await createMatrixMessaging(session, config);
 ```
 
+## Identity
+
+`createMessagingStore` is the in-memory reference transport for demos and tests.
+It does not authenticate anyone. `seed.me` is only the display author stamped
+on messages the store appends. There is no default person: construction throws
+if `me` is missing, and a send is dropped when the resolved author has no id,
+so a signed-out session is not filled in with a fabricated speaker.
+
+A host that uses the store outside a demo passes `me` as a function of its
+verified session. A hardcoded author is demo data, not a signed-in user. A live
+app should use a real transport (for example `@linked.cm/matrix`), which takes
+its session from the host.
+
+`MsgThread.audience` is a host-defined string. The engine carries it and does
+not render or interpret it. Age bands and who may read a thread stay in the host.
+
 ## Styling
 
 The client is styled with LINKED design tokens (`--bg-panel`, `--space-md`,
@@ -65,5 +81,5 @@ import '@linked.cm/messaging/styles.css';
 | built in | `createMessagingStore` — in-memory |
 | `@linked.cm/matrix` | Matrix homeserver + appservice |
 
-The package targets `@_linked/core` 2.14.4 and registers under the LINKED
+The package targets `@_linked/core` ^2.25.0 and registers under the LINKED
 package identity `@_linked/messaging`.

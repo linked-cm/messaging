@@ -46,9 +46,10 @@ export interface MsgThread {
   readOnly?: boolean; // broadcast threads disable the composer
   locked?: boolean; // restricted channel (e.g. captains-only)
   description?: string; // channel intro line in the message-view header
-  /** who this thread carries: 'all' members (default) or '18+' only — the host gates by viewer.
-   *  Per-thread, never system-wide: audience + encryption are properties of EACH thread. */
-  audience?: 'all' | '18+';
+  /** Host-defined audience key for who this thread carries; the host gates by viewer.
+   *  Per-thread, never system-wide: audience + encryption are properties of EACH thread.
+   *  The engine only carries the value — it never renders or interprets it. */
+  audience?: string;
   /** true when the underlying room actually carries E2EE (live transport fact —
    *  the ONLY permitted source for the encrypted shield; never inferred from tier). */
   encrypted?: boolean;
@@ -153,7 +154,12 @@ export interface MessagingSeed {
   spaces: MsgSpace[];
   threads: MsgThread[];
   messages: Record<string, MsgMessage[]>;
-  /** the current user — `send` attributes outgoing messages to them. A function resolves it per-send
-   *  (so it can follow the session's current player). */
+  /**
+   * Display author stamped on messages this store appends. Not an authenticated
+   * identity: the store never checks who is signed in and never invents a person.
+   * A function is read on each send so it can follow the host's verified session.
+   * A constant author is demo or test data — do not ship one as a stand-in for
+   * the signed-in user.
+   */
   me: MsgAuthor | (() => MsgAuthor);
 }

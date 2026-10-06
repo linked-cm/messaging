@@ -11,7 +11,8 @@ Extracted from `serve-earth/serve-community` (Serve's chat engine) on 2026-09-11
 ## Rules
 
 - Shape-agnostic and transport-agnostic: `Messaging` in `src/types.ts` is the seam. The in-memory store is the reference transport; live transports (e.g. `@linked.cm/matrix`) implement the same interface.
-- The engine carries host values (thread audience, encryption flag) and never interprets them. Age bands, safeguarding, and who may read what belong to the host.
+- The engine carries host values (thread `audience` as an opaque string, encryption flag) and never interprets them. Age bands, safeguarding, and who may read what belong to the host.
+- `createMessagingStore`'s `me` is the display author of messages that in-memory store appends, not an authenticated identity. It is required, and the store will not invent one. A constant `me` is demo or test data; a live host passes a function of its verified session or uses a real transport.
 - Theme through `@_linked/css` variables only; no colours of its own.
 - `src/styles.d.ts` is source (CSS-module declarations) even though `.gitignore` ignores other `src/**/*.d.ts`.
 - Releases go through changesets (`npx changeset`). Add `.github/workflows/publish.yml` (copied from `linked-cm/calendar`) only when a release is intended: with no pending changesets, that workflow publishes the current version as soon as it lands on `main`.

@@ -1,8 +1,9 @@
 import React from 'react';
-import type { Messaging, MessagingSeed, MsgMessage } from './types.js';
+import type { Messaging, MessagingSeed, MsgAuthor, MsgMessage } from './types.js';
 
 // In-memory messaging store factory. Subscribable via useSyncExternalStore; `send` appends an optimistic
-// message from the seed's `me`. This is the reference transport — a live transport (e.g. @_linked/matrix)
+// message from the seed's `me`. `me` is a display author, not an authenticated identity — this store
+// never invents one. This is the reference transport — a live transport (e.g. @_linked/matrix)
 // implements the SAME `Messaging` interface, so hosts swap it with zero UI changes.
 
 /** Reply-quote excerpt: first line, trimmed to a chip-sized length. */
@@ -11,7 +12,22 @@ export const excerptOf = (text: string | undefined, max = 80): string => {
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 };
 
+/**
+ * The display author for one send. A blank id is not an author: the store
+ * drops the send rather than inventing a speaker for a signed-out session.
+ */
+function authorOf(me: MessagingSeed['me']): MsgAuthor | undefined {
+  const author = typeof me === 'function' ? me() : me;
+  if (!author || typeof author.id !== 'string' || author.id.trim() === '') return undefined;
+  return author;
+}
+
 export function createMessagingStore(seed: MessagingSeed): Messaging {
+  if (seed?.me == null) {
+    throw new Error(
+      'createMessagingStore requires seed.me (the display author stamped on messages this store appends). The store does not authenticate anyone and will not invent an author — pass the signed-in person, preferably as a function that reads the host session. A constant author belongs in demos and tests only.',
+    );
+  }
   const messages = { ...seed.messages };
   let version = 0;
   const listeners = new Set<() => void>();
@@ -26,22 +42,25 @@ export function createMessagingStore(seed: MessagingSeed): Messaging {
     threads: (spaceId) => seed.threads.filter((t) => t.spaceId === spaceId),
     messages: (threadId) => messages[threadId] ?? [],
     send: (threadId, text) => {
+      const me = authorOf(seed.me);
+      if (!me) return;
       const list = (messages[threadId] ??= []);
-      const me = typeof seed.me === 'function' ? seed.me() : seed.me;
       list.push({ id: `${threadId}-${list.length}`, threadId, author: me, ts: 'now', text, mine: true });
       notify();
     },
     sendData: (threadId, data, fallbackText) => {
+      const me = authorOf(seed.me);
+      if (!me) return;
       const list = (messages[threadId] ??= []);
-      const me = typeof seed.me === 'function' ? seed.me() : seed.me;
       list.push({ id: `${threadId}-${list.length}`, threadId, author: me, ts: 'now', text: fallbackText, data, mine: true });
       notify();
     },
     // Attachment parity with a live transport: an object URL stands in for the
     // mxc→http media URL, so demos/tests render the SAME MsgMessage.media shape the live client emits.
     sendMedia: (threadId, upload) => {
+      const me = authorOf(seed.me);
+      if (!me) return;
       const list = (messages[threadId] ??= []);
-      const me = typeof seed.me === 'function' ? seed.me() : seed.me;
       list.push({
         id: `${threadId}-${list.length}`,
         threadId,
@@ -90,8 +109,9 @@ export function createMessagingStore(seed: MessagingSeed): Messaging {
       notify();
     },
     sendReply: (threadId, text, inReplyToEventId) => {
+      const me = authorOf(seed.me);
+      if (!me) return;
       const list = (messages[threadId] ??= []);
-      const me = typeof seed.me === 'function' ? seed.me() : seed.me;
       const target = list.find((m) => m.id === inReplyToEventId);
       list.push({
         id: `${threadId}-${list.length}`,

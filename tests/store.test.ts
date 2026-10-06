@@ -148,6 +148,37 @@ describe('mock messaging store — M4 seam parity', () => {
     expect(store.version()).toBe(v0);
   });
 
+  it('requires seed.me and does not invent an author when the session has none', () => {
+    const missing = seed();
+    delete (missing as { me?: MessagingSeed['me'] }).me;
+    expect(() => createMessagingStore(missing)).toThrow(/seed\.me/);
+
+    const store = createMessagingStore({
+      ...seed(),
+      me: () => ({ id: '   ', name: 'Ghost', initials: 'G' }),
+    });
+    const before = store.version();
+    store.send('t1', 'hello');
+    store.sendReply!('t1', 'reply', 'a');
+    store.sendData!('t1', { kind: 'card' }, 'card');
+    expect(store.messages('t1')).toHaveLength(2);
+    expect(store.version()).toBe(before);
+  });
+
+  it('reads a function me on each send so the author follows the host session', () => {
+    let name = 'Ada';
+    const store = createMessagingStore({
+      ...seed(),
+      me: () => ({ id: 'https://id.example/ada', name, initials: 'A' }),
+    });
+    store.send('t1', 'one');
+    name = 'Ada Lovelace';
+    store.send('t1', 'two');
+    const msgs = store.messages('t1');
+    expect(msgs[2]!.author).toMatchObject({ id: 'https://id.example/ada', name: 'Ada' });
+    expect(msgs[3]!.author.name).toBe('Ada Lovelace');
+  });
+
   it('excerptOf keeps the first line and trims to chip length', () => {
     expect(excerptOf('hello\nworld')).toBe('hello');
     expect(excerptOf('y'.repeat(120))).toHaveLength(80);
