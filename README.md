@@ -6,7 +6,8 @@ It provides three things and deliberately nothing else:
 
 - **`Messaging`** — the transport seam. `spaces()`, `threads()`, `messages()`,
   `send()`, plus optional additive verbs (`react`, `sendReply`, `edit`,
-  `remove`, `sendMedia`, `sendData`, `sendSignal`, `setTyping`, `markRead`).
+  `remove`, `report`, `ignoreAuthor`, `sendMedia`, `sendData`, `sendSignal`,
+  `setTyping`, `markRead`).
   A transport implements only what it supports; the UI never shows a dead
   control.
 - **`createMessagingStore`** — an in-memory reference implementation of that
@@ -43,7 +44,9 @@ live transport with no component changes:
 import { createMessagingStore } from '@linked.cm/messaging';
 import { createMatrixMessaging } from '@linked.cm/matrix/client';
 
-const store = demo ? createMessagingStore(seed) : await createMatrixMessaging(session, config);
+const store = demo
+  ? createMessagingStore(seed)
+  : await createMatrixMessaging(session, config);
 ```
 
 ## Identity
@@ -62,6 +65,26 @@ its session from the host.
 `MsgThread.audience` is a host-defined string. The engine carries it and does
 not render or interpret it. Age bands and who may read a thread stay in the host.
 
+## Safety
+
+The default client has accessible report, mute, block, own-delete, and authorized
+moderator-remove controls. Pass a `MessageSafetyController` to persist product-level
+actions. A transport-native report/ignore is also used when available, but the API keeps
+the semantics honest: a Matrix ignore is a one-way mute, never a bilateral block.
+
+For conversations between strangers, a host can provide
+`MessageSafetyController.checkOutgoingText`. The client awaits that preflight before the
+transport receives the message. A host can return `silent: true` for a rejected message;
+the client then consumes the draft without displaying a moderation result and never calls
+the transport. Non-silent failures leave the text in the composer and display only the
+host's safe user-facing explanation. Scanning policy and diagnostics stay server-side.
+
+`filterUnsafeMessages`, `createSlidingWindowRateLimiter`, and
+`runMessageTextSafetyCheck` are reusable without the UI. The scan helper requires an
+injected scanner and records when none is available; this package does not claim that a
+keyword list or empty seam is content moderation. Durable RDF records and moderation
+lifecycle operations live in `@linked.cm/safety`.
+
 ## Styling
 
 The client is styled with LINKED design tokens (`--bg-panel`, `--space-md`,
@@ -76,10 +99,10 @@ import '@linked.cm/messaging/styles.css';
 
 ## Transports
 
-| Package | Transport |
-|---|---|
-| built in | `createMessagingStore` — in-memory |
-| `@linked.cm/matrix` | Matrix homeserver + appservice |
+| Package             | Transport                          |
+| ------------------- | ---------------------------------- |
+| built in            | `createMessagingStore` — in-memory |
+| `@linked.cm/matrix` | Matrix homeserver + appservice     |
 
 The package targets `@_linked/core` ^2.25.0 and registers under the LINKED
 package identity `@_linked/messaging`.
