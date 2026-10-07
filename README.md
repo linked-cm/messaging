@@ -44,7 +44,9 @@ live transport with no component changes:
 import { createMessagingStore } from '@linked.cm/messaging';
 import { createMatrixMessaging } from '@linked.cm/matrix/client';
 
-const store = demo ? createMessagingStore(seed) : await createMatrixMessaging(session, config);
+const store = demo
+  ? createMessagingStore(seed)
+  : await createMatrixMessaging(session, config);
 ```
 
 ## Identity
@@ -70,6 +72,13 @@ moderator-remove controls. Pass a `MessageSafetyController` to persist product-l
 actions. A transport-native report/ignore is also used when available, but the API keeps
 the semantics honest: a Matrix ignore is a one-way mute, never a bilateral block.
 
+For conversations between strangers, a host can provide
+`MessageSafetyController.checkOutgoingText`. The client awaits that preflight before the
+transport receives the message. A host can return `silent: true` for a rejected message;
+the client then consumes the draft without displaying a moderation result and never calls
+the transport. Non-silent failures leave the text in the composer and display only the
+host's safe user-facing explanation. Scanning policy and diagnostics stay server-side.
+
 `filterUnsafeMessages`, `createSlidingWindowRateLimiter`, and
 `runMessageTextSafetyCheck` are reusable without the UI. The scan helper requires an
 injected scanner and records when none is available; this package does not claim that a
@@ -90,10 +99,10 @@ import '@linked.cm/messaging/styles.css';
 
 ## Transports
 
-| Package | Transport |
-|---|---|
-| built in | `createMessagingStore` — in-memory |
-| `@linked.cm/matrix` | Matrix homeserver + appservice |
+| Package             | Transport                          |
+| ------------------- | ---------------------------------- |
+| built in            | `createMessagingStore` — in-memory |
+| `@linked.cm/matrix` | Matrix homeserver + appservice     |
 
 The package targets `@_linked/core` ^2.25.0 and registers under the LINKED
 package identity `@_linked/messaging`.

@@ -40,6 +40,19 @@ export interface MessageModerationInput extends MessageSafetySubject {
   reason?: string;
 }
 
+export interface MessageSendCheckInput {
+  thread: MsgThread;
+  text: string;
+}
+
+export interface MessageSendCheckResult {
+  allowed: boolean;
+  /** Consume the draft without revealing that moderation intervened. */
+  silent?: boolean;
+  /** Safe, user-facing copy. Scanner diagnostics must remain server-side. */
+  message?: string;
+}
+
 /**
  * Host-owned durable safety actions used by the portable client.
  *
@@ -48,6 +61,10 @@ export interface MessageModerationInput extends MessageSafetySubject {
  * transport reporting/ignoring remains a separate, narrower fallback.
  */
 export interface MessageSafetyController {
+  /** Host preflight for text sent to strangers. Runs before the transport sees it. */
+  checkOutgoingText?: (
+    input: MessageSendCheckInput
+  ) => MessageSendCheckResult | Promise<MessageSendCheckResult>;
   reportMessage?: (input: MessageReportInput) => void | Promise<void>;
   /** A product-level block (normally bilateral and silent). */
   blockAuthor?: (input: MessageAuthorActionInput) => void | Promise<void>;
@@ -79,7 +96,7 @@ export interface MessageSafetyFilter {
 /** Pure visibility filter. It returns the original array when nothing is hidden. */
 export function filterUnsafeMessages(
   messages: MsgMessage[],
-  filter?: MessageSafetyFilter | null,
+  filter?: MessageSafetyFilter | null
 ): MsgMessage[] {
   if (!filter) return messages;
   const blocked = filter.blockedAuthorIds;
@@ -90,7 +107,7 @@ export function filterUnsafeMessages(
     (message) =>
       !blocked?.has(message.author.id) &&
       !muted?.has(message.author.id) &&
-      !hidden?.has(messageSafetyKey(message.threadId, message.id)),
+      !hidden?.has(messageSafetyKey(message.threadId, message.id))
   );
   return kept.length === messages.length ? messages : kept;
 }
@@ -116,7 +133,9 @@ export function createSlidingWindowRateLimiter(options: {
   const attempts = new Map<string, number[]>();
 
   const trim = (key: string, now: number): number[] => {
-    const recent = (attempts.get(key) ?? []).filter((at) => now - at < windowMs);
+    const recent = (attempts.get(key) ?? []).filter(
+      (at) => now - at < windowMs
+    );
     if (recent.length) attempts.set(key, recent);
     else attempts.delete(key);
     return recent;
@@ -140,7 +159,11 @@ export function createSlidingWindowRateLimiter(options: {
         if (!oldest) break;
         attempts.delete(oldest);
       }
-      return { allowed: true, remaining: limit - recent.length, retryAfterMs: 0 };
+      return {
+        allowed: true,
+        remaining: limit - recent.length,
+        retryAfterMs: 0,
+      };
     },
     clear(key: string): void {
       attempts.delete(key);
@@ -151,19 +174,23 @@ export function createSlidingWindowRateLimiter(options: {
 export type MessageSafetyCategory =
   | 'spam'
   | 'harassment'
-  | 'hate'
-  | 'threats'
-  | 'sexual'
-  | 'childSexualAbuse'
+  | 'hateSpeech'
+  | 'violence'
+  | 'sexualContent'
+  | 'childSafety'
   | 'selfHarm'
   | 'personalInformation'
+  | 'crime'
   | 'other';
 
 export type MessageScanAction = 'allow' | 'review' | 'block';
+export type MessageScanEnforcement = 'suppress' | 'freezeAccount';
 
 export interface MessageScanResult {
   action: MessageScanAction;
   categories?: readonly MessageSafetyCategory[];
+  /** Host action requested by the scanner. The host owns persistence and enforcement. */
+  enforcement?: MessageScanEnforcement;
   /** For moderators/audit records. Never display scanner diagnostics to a target. */
   summary?: string;
 }
@@ -186,8 +213,10 @@ export async function runMessageTextSafetyCheck(
   options: {
     scanner?: MessageTextScanner;
     unavailableAction?: Exclude<MessageScanAction, 'allow'>;
-    record?: (result: MessageScanResult & { scannerAvailable: boolean }) => void | Promise<void>;
-  },
+    record?: (
+      result: MessageScanResult & { scannerAvailable: boolean }
+    ) => void | Promise<void>;
+  }
 ): Promise<MessageScanResult> {
   const unavailable = (summary: string): MessageScanResult => ({
     action: options.unavailableAction ?? 'review',
@@ -202,6 +231,12 @@ export async function runMessageTextSafetyCheck(
     const result = await options.scanner.scan(input);
     if (!['allow', 'review', 'block'].includes(result.action)) {
       throw new Error('Scanner returned an invalid action');
+    }
+    if (
+      result.enforcement &&
+      !['suppress', 'freezeAccount'].includes(result.enforcement)
+    ) {
+      throw new Error('Scanner returned an invalid enforcement');
     }
     await options.record?.({ ...result, scannerAvailable: true });
     return result;
