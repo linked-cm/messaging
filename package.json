@@ -1,6 +1,6 @@
 {
   "name": "@linked.cm/messaging",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A shape-agnostic, transport-agnostic LINKED messaging engine — the Messaging seam, an in-memory store, and a themeable chat client. Transports (e.g. @linked.cm/matrix) implement the same interface.",
   "linkedPackage": true,
   "type": "module",
