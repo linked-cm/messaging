@@ -93,5 +93,6 @@
     "chat",
     "rdf",
     "semantic-web"
-  ]
+  ],
+  "packageManager": "npm@12.2.0"
 }
