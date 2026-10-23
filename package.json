@@ -69,14 +69,14 @@
   },
   "dependencies": {
     "@_linked/core": "^2.25.0",
-    "@_linked/css": "0.2.0"
+    "@_linked/css": "^0.2.0 || ^0.3.0"
   },
   "peerDependencies": {
     "react": "^18.2.0 || ^19.0.0",
     "react-dom": "^18.2.0 || ^19.0.0"
   },
   "devDependencies": {
-    "@_linked/cli": "1.39.0",
+    "@_linked/cli": "^1.54.0",
     "@types/node": "^20.12.7",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
