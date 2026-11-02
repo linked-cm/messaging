@@ -2,9 +2,11 @@
   "name": "@linked.cm/messaging",
   "version": "0.3.0",
   "description": "A shape-agnostic, transport-agnostic LINKED messaging engine — the Messaging seam, an in-memory store, and a themeable chat client. Transports (e.g. @linked.cm/matrix) implement the same interface.",
-  "linkedPackage": true,
+  "linked": {
+    "kind": "library"
+  },
   "type": "module",
-  "main": "lib/cjs/index.js",
+  "main": "lib/esm/index.js",
   "module": "lib/esm/index.js",
   "types": "lib/esm/index.d.ts",
   "license": "MIT",
@@ -37,27 +39,22 @@
   "exports": {
     ".": {
       "types": "./lib/esm/index.d.ts",
-      "import": "./lib/esm/index.js",
-      "require": "./lib/cjs/index.js"
+      "import": "./lib/esm/index.js"
     },
     "./package": {
       "types": "./lib/esm/package.d.ts",
-      "import": "./lib/esm/package.js",
-      "require": "./lib/cjs/package.js"
+      "import": "./lib/esm/package.js"
     },
     "./styles.css": {
-      "import": "./lib/esm/MessageClient.module.css",
-      "require": "./lib/cjs/MessageClient.module.css"
+      "import": "./lib/esm/MessageClient.module.css"
     },
     "./*.js": {
       "types": "./lib/esm/*.d.ts",
-      "import": "./lib/esm/*.js",
-      "require": "./lib/cjs/*.js"
+      "import": "./lib/esm/*.js"
     },
     "./*": {
       "types": "./lib/esm/*.d.ts",
-      "import": "./lib/esm/*.js",
-      "require": "./lib/cjs/*.js"
+      "import": "./lib/esm/*.js"
     }
   },
   "typesVersions": {
@@ -68,15 +65,15 @@
     }
   },
   "dependencies": {
-    "@_linked/core": "^2.25.0",
-    "@_linked/css": "0.2.0"
+    "@_linked/core": "^2.46.0",
+    "@_linked/css": "^0.3.3"
   },
   "peerDependencies": {
     "react": "^18.2.0 || ^19.0.0",
     "react-dom": "^18.2.0 || ^19.0.0"
   },
   "devDependencies": {
-    "@_linked/cli": "1.39.0",
+    "@_linked/cli": "^1.61.0",
     "@types/node": "^20.12.7",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
